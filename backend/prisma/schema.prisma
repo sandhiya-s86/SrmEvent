@@ -1,0 +1,183 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  STUDENT
+  ORGANIZER
+  ADMIN
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum RegistrationStatus {
+  REGISTERED
+  WAITLISTED
+  CANCELLED
+  ATTENDED
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  email       String   @unique
+  username    String?  @unique
+  password    String
+  firstName   String
+  lastName    String
+  role        UserRole @default(STUDENT)
+  studentId   String?  @unique
+  phoneNumber String?
+  profileImage String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  organizedEvents Event[]
+  registrations   Registration[]
+  notifications   Notification[]
+  analytics       Analytics[]
+
+  @@map("users")
+}
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  icon        String?
+  color       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  events Event[]
+
+  @@map("categories")
+}
+
+model Event {
+  id              Int         @id @default(autoincrement())
+  title           String
+  description     String
+  categoryId      Int
+  venue           String
+  date            DateTime
+  endDate         DateTime?
+  capacity        Int
+  currentRegistrations Int    @default(0)
+  price           Float       @default(0)
+  imageUrl        String?
+  status          EventStatus @default(DRAFT)
+  isOutdoor       Boolean     @default(false)
+  requirements    String?
+  contactEmail    String?
+  contactPhone    String?
+  organizerId     Int
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  category     Category       @relation(fields: [categoryId], references: [id])
+  organizer    User           @relation(fields: [organizerId], references: [id])
+  registrations Registration[]
+  analytics    Analytics[]
+
+  @@map("events")
+}
+
+model Registration {
+  id          Int                @id @default(autoincrement())
+  userId      Int
+  eventId     Int
+  status      RegistrationStatus @default(REGISTERED)
+  registeredAt DateTime          @default(now())
+  qrCode      String?            @unique
+  checkInTime DateTime?
+  notes       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  // Relations
+  user  User  @relation(fields: [userId], references: [id])
+  event Event @relation(fields: [eventId], references: [id])
+
+  @@unique([userId, eventId])
+  @@map("registrations")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  message   String
+  type      String   // 'registration', 'waitlist_promotion', 'event_update', 'reminder'
+  isRead    Boolean  @default(false)
+  data      Json?    // Additional data for the notification
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+model Analytics {
+  id           Int      @id @default(autoincrement())
+  eventId      Int?
+  userId       Int?
+  metric       String   // 'registration', 'view', 'click', 'revenue'
+  value        Float?
+  metadata     Json?
+  timestamp    DateTime @default(now())
+
+  // Relations
+  event Event? @relation(fields: [eventId], references: [id])
+  user  User?  @relation(fields: [userId], references: [id])
+
+  @@map("analytics")
+}
+
+model PromoCode {
+  id           Int      @id @default(autoincrement())
+  code         String   @unique
+  description  String
+  discountType String   // 'percentage', 'fixed'
+  discountValue Float
+  maxUses      Int?
+  currentUses  Int      @default(0)
+  validFrom    DateTime
+  validUntil   DateTime
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("promo_codes")
+}
+
+model WeatherCache {
+  id        Int      @id @default(autoincrement())
+  venue     String
+  date      DateTime
+  weather   Json
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@unique([venue, date])
+  @@map("weather_cache")
+}
+
